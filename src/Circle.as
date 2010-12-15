@@ -16,13 +16,13 @@ package {
 		public var isBounced:Boolean = false;
 		public var isLaunched:Boolean = false;
 		
-		public var color:Number;
+		public var color:uint;
 		
 		public var exploded:Boolean = false;
 		
 		public var centerPoint:Number;
 		
-		public function Circle(radius:Number = 20, center:Boolean = false, color:uint = 0xFFFFFF, ivx:Number = 0, ivy:Number = 0, iweight:Number = 0)
+		public function Circle(radius:Number = 20, center:Boolean = false, color:uint = 0xFF0000, ivx:Number = 0, ivy:Number = 0, iweight:Number = 0)
 		{
 			this.color = color;
 			

@@ -1,49 +1,86 @@
-package {
-	import flash.geom.ColorTransform;
+package
+{
 	import net.hires.debug.Stats;
-	import flash.filters.BlurFilter;
+
 	import flash.display.*;
 	import flash.events.*;
+	import flash.geom.*;
+	import flash.media.*;
+	import flash.net.*;
+	import flash.utils.*;
 
 	/**
-	 * @author thiago
+	 * @author Thiago Coelho
 	 */
 	 
 	[SWF(backgroundColor="#CCCCCC", frameRate="31", width="640", height="480")]
-	
+
 	public class App extends MovieClip
 	{
 		private var _circles:Array = new Array();
-		
 		private var _gravity:Number = 0.95;
-		
-		private var _angle:Number = 0;
-		
-		private var _drawLines:Boolean = false;
-		
-		private var _count:int = 2;
-		
+		private var _count:int = 512;
 		private var _friction:Number = 0.1;
-		
+		private var _bArray:ByteArray = new ByteArray();
+		private var _channelLength:uint = 512;
+		private var _sound:Sound;
+		private var _played:Boolean = false;
+		private var _bSprite:Sprite = new Sprite();
+
 		public function App()
 		{
-			addChild(new Stats());
+			if (stage)
+			{
+				_init();
+			}
+			else
+			{
+				addEventListener(Event.ADDED_TO_STAGE, _init);
+			}
+		}
+
+		private function _init(e:Event = null):void
+		{
+			removeEventListener(Event.ADDED_TO_STAGE, _init);
 			
 			stage.scaleMode = StageScaleMode.NO_SCALE;
 			stage.align = StageAlign.TOP_LEFT;
 			
-			for (var i:int = 0; i < _count; i++)
+			addChild(new Stats());
+			
+			_createCircles();
+			
+			_sound = new Sound();
+			
+			_sound.addEventListener(ProgressEvent.PROGRESS, _buffer);
+			_sound.addEventListener(Event.COMPLETE, _playSound);
+			_sound.addEventListener(IOErrorEvent.IO_ERROR, _ioError);
+			
+			_sound.load(new URLRequest("music.mp3"));
+			
+			addChild(_bSprite);
+		}
+		
+		private function _createCircles():void
+		{
+			var color:uint = 0xFF0000;
+			
+			for (var i:int = 0;i < _count;i++)
 			{
-				var circle:Circle = new Circle(20, false, 0xFF0000);
+				color = (i >= 255) ? 0x000000 : 0xFF0000;
 				
-				circle.vx = -10 + Math.random() * 20;
-				//circle.vy = 10 + Math.random() * 10;
+				_addCircles(color, 10, false);
+				
+				/*
+				var circle:Circle = new Circle(10, false, color);
+				
+				circle.vx = - 10 + Math.random() * 20;
 				circle.vy = 30;
-				circle.weight = 5// + Math.random() * 10;
+				circle.weight = 5;
 				
 				circle.finalPos = Math.round((circle.vy / _gravity) * circle.vy);
 				
-				circle.x = stage.stageWidth/2 - circle.width/2;
+				circle.x = stage.stageWidth / 2 - circle.width / 2;
 				circle.y = stage.stageHeight - circle.height;
 				
 				circle.isLaunched = false;
@@ -51,21 +88,73 @@ package {
 				_circles.push(circle);
 				
 				addChild(circle);
+				 */
 			}
+		}
+		
+		private function _addCircles(color:uint = 0xFFFFFF, radius:Number = 10, center:Boolean = false):void
+		{
+			var circle:Circle = new Circle(radius, center, color);
+				
+			circle.vx = - 10 + Math.random() * 20;
+			circle.vy = 15;
 			
-			stage.addEventListener(Event.ENTER_FRAME, _render);
+			//circle.finalPos = Math.round((circle.vy / _gravity) * circle.vy);
+			
+			circle.x = stage.stageWidth / 2 - circle.width / 2;
+			circle.y = stage.stageHeight / 2;
+			
+			circle.isLaunched = false;
+			
+			_circles.push(circle);
+			
+			addChild(circle);
 		}
 
-		private function _render(e:Event) : void
+		private function _buffer(e:ProgressEvent):void
 		{
+			_bSprite.y = stage.stageHeight / 2;
+			
+			var ratio:Number = e.bytesLoaded / e.bytesTotal;
+			
+			_bSprite.graphics.clear();
+			_bSprite.graphics.lineStyle(1, 0xFF0000);
+			_bSprite.graphics.lineTo(ratio * stage.stageWidth, 0);
+			
+			if (ratio > 0.1 && ! _played)
+			{
+				_played = true;
+				_sound.play();
+				stage.addEventListener(Event.ENTER_FRAME, _render);
+			}
+		}
+
+		private function _playSound(e:Event):void
+		{
+			_bSprite.visible = false;
+			_sound.removeEventListener(ProgressEvent.PROGRESS, _buffer);
+			_sound.removeEventListener(Event.COMPLETE, _playSound);
+			_sound.removeEventListener(IOErrorEvent.IO_ERROR, _ioError);
+		}
+
+		private function _ioError(e:IOErrorEvent):void
+		{
+			trace(e);
+		}
+
+		private function _render(e:Event):void
+		{
+			SoundMixer.computeSpectrum(_bArray, false, 0);
+			
+			var rFloat:Number = 0;
+			
+			for (var i:int = 0;i < _channelLength;i++)
+			{
+				rFloat = _bArray.readFloat();
+			}
+			
 			var sh:Number = stage.stageHeight;
 			var sw:Number = stage.stageWidth;
-			
-			this.graphics.clear();
-			
-			var fCircle:Circle = _circles[0];
-			
-			this.graphics.moveTo(fCircle.x, fCircle.y);
 			
 			for each(var circle:Circle in _circles)
 			{
@@ -84,8 +173,8 @@ package {
 				else
 				{
 					speed = 0;
-					circle.vx = 0
-					circle.vy = 0
+					circle.vx = 0;
+					circle.vy = 0;
 				}
 				
 				circle.vy -= _gravity;
@@ -94,90 +183,40 @@ package {
 				
 				circle.y -= Math.floor(circle.vy);
 				
-				if (_drawLines)
+				if ((circle.y + circleHeight) > sh) 
 				{
-					this.graphics.lineStyle(1, 0xFFFFFF, ratio);
+					circle.vx = 0;
+					circle.vx = rFloat * (- 15 + Math.random() * 30);
 					
-					this.graphics.lineTo(circle.x + circle.centerPoint, circle.y + circle.centerPoint);
-				}
-				
-				if (circle.y + circleHeight < (sh - circleHeight) && !circle.isLaunched)
-				{
-					circle.isLaunched = true;
-				}
-				
-				if ((circle.y + circleHeight) > sh && circle.isLaunched) 
-				{
 					circle.y = sh - circleHeight;
 					
-					circle.vy *= -1;
+					circle.vy = 0;
 					
-					circle.finalPos = Math.floor((circle.vy / _gravity) * circle.vy);
+					circle.vy = rFloat * (Math.random() * (30));
 					
-					if(!circle.isBounced)
-					{
-						circle.isBounced = true;
-						circle.vy = speed + (Math.random() * circle.weight);
-					}
+					circle.vy *= - 1;
 				}
 				
 				var ratio:Number = 0;
 				
-				if (circle.finalPos == 0)
-				{
-					ratio = 1;
-				}
-				else
-				{
-					ratio = ((circle.y+circle.height) / circle.finalPos);
-				}
-				
-				trace(circle.y, circle.finalPos, "ratio: ", ratio);
+				ratio = ((circle.y + circle.height)) / sh;
 				
 				_changeColor(circle, 0xFFFFFF, ratio);
 				
 				if ((circle.x + circleWidth) > stage.stageWidth)
 				{
-					circle.vx *= -1;
+					circle.vx *= - 1;
 					circle.x = sw - circleWidth;
 				}
 				else if (circle.x < 0)
 				{
 					circle.x = 0;
-					circle.vx *= -1;
+					circle.vx *= - 1;
 				}
-				
-				//circle.filters = [new BlurFilter(circle.vx, Math.abs(circle.vy), 1)];
-				
-				/*
-				if (circle.y > sh && circle.isBounced)
-				{
-				 	
-				}
-				*/
 			}
 		}
-		
-		private function _reset(target:Circle):void
-		{
-			var sw:Number = stage.stageWidth*.5;
-			var sh:Number = stage.stageHeight;
-					
-			var centerPoint:Number = sw - target.width;
-			
-			target.isBounced = false;
-			target.isLaunched = false;
-			target.x = centerPoint;
-			//circle.x = centerPoint + Math.cos(_angle) * centerPoint
-			target.y = sh;
-			//target.vy = 10 + (Math.random() * 10);
-			target.vy = 10;
-			target.vx = -5 + (Math.random() * 10);
-			
-			target.finalPos = Math.round((target.vy / _gravity) * target.vy);
-		}
 
-		private function _changeColor(circle : Circle, color : Number = 0xFF0000, ratio:Number = 0) : void
+		private function _changeColor(circle:Circle, color:Number = 0xFF0000, ratio:Number = 0):void
 		{
 			var originalColor:Array = hex2rgb(circle.color);
 			
@@ -191,9 +230,9 @@ package {
 			var maxGreen:Number = newColor[1];
 			var maxBlue:Number = newColor[2];
 			
-			var fRed:uint = cRed + (ratio * (maxRed - cRed));
-			var fGreen:uint = cGreen + (ratio * (maxGreen - cGreen));
-			var fBlue:uint = cBlue + (ratio * (maxBlue - cBlue));
+			var fRed:uint = maxRed + (ratio * (cRed - maxRed));
+			var fGreen:uint = maxGreen + (ratio * (cGreen - maxGreen));
+			var fBlue:uint = maxBlue + (ratio * (cBlue - maxBlue));
 			
 			var finalColorT:ColorTransform = new ColorTransform(0, 0, 0, 1, fRed, fGreen, fBlue, 0);
 			
@@ -205,9 +244,9 @@ package {
 		 * @param hex The hexadecimal to be converted.
 		 * @return HEXADECIMAL INTRO RGB (array with 3 indexes: 0=R, 1=G, 2=B).
 		 */
-		public static function hex2rgb(hex : Number) : Array 
+		public static function hex2rgb(hex:Number):Array 
 		{
-			return new Array( (hex >> 16), (hex >> 8 & 0xff), (hex & 0xff) );
+			return new Array((hex >> 16), (hex >> 8 & 0xff), (hex & 0xff));
 		}
 	}
 }
