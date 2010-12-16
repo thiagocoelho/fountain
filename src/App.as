@@ -19,13 +19,15 @@ package
 	{
 		private var _circles:Array = new Array();
 		private var _gravity:Number = 0.95;
-		private var _count:int = 512;
+		private var _count:int = 100;
 		private var _friction:Number = 0.1;
 		private var _bArray:ByteArray = new ByteArray();
 		private var _channelLength:uint = 512;
 		private var _sound:Sound;
 		private var _played:Boolean = false;
 		private var _bSprite:Sprite = new Sprite();
+		
+		private var _bPass:int;
 
 		public function App()
 		{
@@ -60,14 +62,16 @@ package
 			
 			addChild(_bSprite);
 		}
-		
+
 		private function _createCircles():void
 		{
 			var color:uint = 0xFF0000;
 			
 			for (var i:int = 0;i < _count;i++)
 			{
-				color = (i >= 255) ? 0x000000 : 0xFF0000;
+				trace(i);
+				
+				color = (i >= _count/2) ? 0x000000 : 0xFF0000;
 				
 				_addCircles(color, 10, false);
 				
@@ -109,6 +113,8 @@ package
 			_circles.push(circle);
 			
 			addChild(circle);
+			
+			_bPass = _channelLength / _circles.length;
 		}
 
 		private function _buffer(e:ProgressEvent):void
@@ -144,20 +150,23 @@ package
 
 		private function _render(e:Event):void
 		{
+			var sh:Number = stage.stageHeight;
+			var sw:Number = stage.stageWidth;
+			
 			SoundMixer.computeSpectrum(_bArray, false, 0);
 			
 			var rFloat:Number = 0;
 			
-			for (var i:int = 0;i < _channelLength;i++)
-			{
-				rFloat = _bArray.readFloat();
-			}
-			
-			var sh:Number = stage.stageHeight;
-			var sw:Number = stage.stageWidth;
-			
 			for each(var circle:Circle in _circles)
 			{
+				for (var i:int = 0; i < _bPass; i++)
+				{
+					//realtime
+					rFloat = _bArray.readFloat();
+				}
+				
+				//lastvalue
+				
 				var circleWidth:Number = circle.width;
 				var circleHeight:Number = circle.height;
 				
@@ -192,7 +201,7 @@ package
 					
 					circle.vy = 0;
 					
-					circle.vy = rFloat * (Math.random() * (30));
+					circle.vy = rFloat  * (30);
 					
 					circle.vy *= - 1;
 				}
