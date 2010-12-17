@@ -19,7 +19,7 @@ package
 	{
 		private var _circles:Array = new Array();
 		private var _gravity:Number = 0.95;
-		private var _count:int = 100;
+		private var _count:int = 512;
 		private var _friction:Number = 0.1;
 		private var _bArray:ByteArray = new ByteArray();
 		private var _channelLength:uint = 512;
@@ -28,6 +28,8 @@ package
 		private var _bSprite:Sprite = new Sprite();
 		
 		private var _bPass:int;
+		
+		private var _scroller:scrollBar;
 
 		public function App()
 		{
@@ -61,6 +63,48 @@ package
 			_sound.load(new URLRequest("music.mp3"));
 			
 			addChild(_bSprite);
+			
+			_scroller = new scrollBar();
+			_scroller.x = 200;
+			_scroller.y = 200;
+			addChild(_scroller);
+			
+			_scroller.track.addEventListener(MouseEvent.MOUSE_DOWN, _startTrack);
+		}
+
+		private function _startTrack(e:MouseEvent):void 
+		{
+			addEventListener(Event.ENTER_FRAME, _setCircles);
+			stage.addEventListener(MouseEvent.MOUSE_UP, _stopDrag);
+			_scroller.track.startDrag(false, new Rectangle(0, 0, _scroller.bar.width - _scroller.track.width, 0));
+		}
+		
+		private var _currentCircle:int;
+
+		private function _setCircles(event:Event):void 
+		{
+			var ratio:Number = _scroller.track.x / (_scroller.bar.width - _scroller.track.width);
+			
+			var circle:int = (ratio * (_circles.length-1));
+			
+			trace(circle, _circles.length);
+			
+			if (_circles[circle].visible && circle != _currentCircle)
+			{
+				_circles[circle].visible = false;
+			}
+			else if (circle != _currentCircle)
+			{
+				_circles[circle].visible = true;
+			}
+			
+			_currentCircle = circle
+		}
+
+		private function _stopDrag(event:MouseEvent):void 
+		{
+			removeEventListener(Event.ENTER_FRAME, _setCircles);
+			_scroller.track.stopDrag();
 		}
 
 		private function _createCircles():void
@@ -69,8 +113,6 @@ package
 			
 			for (var i:int = 0;i < _count;i++)
 			{
-				trace(i);
-				
 				color = (i >= _count/2) ? 0x000000 : 0xFF0000;
 				
 				_addCircles(color, 10, false);
