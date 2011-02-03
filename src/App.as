@@ -60,7 +60,7 @@ package
 			_sound.addEventListener(Event.COMPLETE, _playSound);
 			_sound.addEventListener(IOErrorEvent.IO_ERROR, _ioError);
 			
-			_sound.load(new URLRequest("music.mp3"));
+			_sound.load(new URLRequest("../music.mp3"));
 			
 			addChild(_bSprite);
 			
